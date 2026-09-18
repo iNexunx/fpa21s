@@ -55,12 +55,13 @@ jobs:
               <bool name="config_hasFingerprintSensor">true</bool>
               <integer name="config_fingerprintSensorType">1</integer>
               <bool name="config_useDevInputEventForFingerprint">false</bool>
+              <bool name="config_fingerprintSupportsGestures">false</bool>
+              <bool name="config_use_legacy_fingerprint_hal">true</bool>
               <string-array name="config_biometric_sensors" translatable="false">
                   <item>0:2:15</item>
               </string-array>
               <string-array name="config_fingerprintSensorLocations" translatable="false">
                   <item>0:540:700:80</item>
-                  <item>540:700:80</item>
               </string-array>
           </resources>
           EOF
