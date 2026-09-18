@@ -32,11 +32,11 @@ jobs:
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
           $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-${{ matrix.api_level }}" || true
 
-      - name: Generar archivos del Overlay
+      - name: Compilar Overlay Framework (android)
         run: |
-          mkdir -p res/values
+          mkdir -p framework_build/res/values
 
-          cat << 'EOF' > AndroidManifest.xml
+          cat << 'EOF' > framework_build/AndroidManifest.xml
           <manifest xmlns:android="http://schemas.android.com/apk/res/android"
               package="me.phh.treble.overlay.samsung.a21s.fingerprint"
               android:versionCode="1"
@@ -44,12 +44,12 @@ jobs:
               <uses-sdk android:minSdkVersion="${{ matrix.api_level }}" android:targetSdkVersion="${{ matrix.api_level }}" />
               <application android:hasCode="false" />
               <overlay android:targetPackage="android"
-                       android:priority="1000"
-                       android:category="android.theme.customization" />
+                       android:priority="10"
+                       android:isStatic="true" />
           </manifest>
           EOF
 
-          cat << 'EOF' > res/values/config.xml
+          cat << 'EOF' > framework_build/res/values/config.xml
           <?xml version="1.0" encoding="utf-8"?>
           <resources>
               <bool name="config_hasFingerprintSensor">true</bool>
@@ -64,8 +64,6 @@ jobs:
           </resources>
           EOF
 
-      - name: Compilar y empaquetar APK
-        run: |
           BUILD_TOOLS=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -n 1)
 
           if [ -d "$ANDROID_HOME/platforms/android-${{ matrix.api_level }}" ]; then
@@ -74,29 +72,80 @@ jobs:
             PLATFORM=$(ls -d $ANDROID_HOME/platforms/android-* | sort -V | tail -n 1)
           fi
 
-          $BUILD_TOOLS/aapt2 compile --dir res -o compiled_res.zip
+          $BUILD_TOOLS/aapt2 compile --dir framework_build/res -o framework_res.zip
 
           $BUILD_TOOLS/aapt2 link \
             -I "$PLATFORM/android.jar" \
             --min-sdk-version ${{ matrix.api_level }} \
             --target-sdk-version ${{ matrix.api_level }} \
-            --manifest AndroidManifest.xml \
+            --manifest framework_build/AndroidManifest.xml \
             --auto-add-overlay \
-            -o unaligned.apk \
-            compiled_res.zip
+            -o framework_unaligned.apk \
+            framework_res.zip
 
-          $BUILD_TOOLS/zipalign -v -p 4 unaligned.apk aligned.apk
+          $BUILD_TOOLS/zipalign -v -p 4 framework_unaligned.apk framework_aligned.apk
 
           keytool -genkeypair -v -keystore test.keystore -storepass password -keypass password \
             -alias test -keyalg RSA -keysize 2048 -validity 10000 \
             -dname "CN=Android,O=Android,C=US"
 
-          OUTPUT_NAME="treble-overlay-samsung-a21s-fingerprint-android${{ matrix.android_ver }}.apk"
+          FW_APK="treble-overlay-samsung-a21s-fingerprint-android${{ matrix.android_ver }}.apk"
           $BUILD_TOOLS/apksigner sign --ks test.keystore --ks-pass pass:password \
-            --out "$OUTPUT_NAME" aligned.apk
+            --out "$FW_APK" framework_aligned.apk
 
-      - name: Subir APK
+      - name: Compilar Overlay Settings (com.android.settings)
+        run: |
+          mkdir -p settings_build/res/values
+
+          cat << 'EOF' > settings_build/AndroidManifest.xml
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+              package="me.phh.treble.overlay.samsung.a21s.fingerprint.settings"
+              android:versionCode="1"
+              android:versionName="1.0">
+              <uses-sdk android:minSdkVersion="${{ matrix.api_level }}" android:targetSdkVersion="${{ matrix.api_level }}" />
+              <application android:hasCode="false" />
+              <overlay android:targetPackage="com.android.settings"
+                       android:priority="10"
+                       android:isStatic="true" />
+          </manifest>
+          EOF
+
+          cat << 'EOF' > settings_build/res/values/config.xml
+          <?xml version="1.0" encoding="utf-8"?>
+          <resources>
+              <bool name="config_show_fingerprint_settings">true</bool>
+          </resources>
+          EOF
+
+          BUILD_TOOLS=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -n 1)
+
+          if [ -d "$ANDROID_HOME/platforms/android-${{ matrix.api_level }}" ]; then
+            PLATFORM="$ANDROID_HOME/platforms/android-${{ matrix.api_level }}"
+          else
+            PLATFORM=$(ls -d $ANDROID_HOME/platforms/android-* | sort -V | tail -n 1)
+          fi
+
+          $BUILD_TOOLS/aapt2 compile --dir settings_build/res -o settings_res.zip
+
+          $BUILD_TOOLS/aapt2 link \
+            -I "$PLATFORM/android.jar" \
+            --min-sdk-version ${{ matrix.api_level }} \
+            --target-sdk-version ${{ matrix.api_level }} \
+            --manifest settings_build/AndroidManifest.xml \
+            --auto-add-overlay \
+            -o settings_unaligned.apk \
+            settings_res.zip
+
+          $BUILD_TOOLS/zipalign -v -p 4 settings_unaligned.apk settings_aligned.apk
+
+          SETTINGS_APK="treble-overlay-samsung-a21s-fingerprint-settings-android${{ matrix.android_ver }}.apk"
+          $BUILD_TOOLS/apksigner sign --ks test.keystore --ks-pass pass:password \
+            --out "$SETTINGS_APK" settings_aligned.apk
+
+      - name: Subir APKs compilados
         uses: actions/upload-artifact@v4
         with:
-          name: overlay-android-${{ matrix.android_ver }}
-          path: treble-overlay-samsung-a21s-fingerprint-android${{ matrix.android_ver }}.apk
+          name: overlays-android-${{ matrix.android_ver }}
+          path: |
+            treble-overlay-samsung-a21s-fingerprint-android${{ matrix.android_ver }}.apk
+            treble-overlay-samsung-a21s-fingerprint-settings-android${{ matrix.android_ver }}.apk
