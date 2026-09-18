@@ -55,6 +55,12 @@ jobs:
               <bool name="config_hasFingerprintSensor">true</bool>
               <integer name="config_fingerprintSensorType">1</integer>
               <bool name="config_useDevInputEventForFingerprint">false</bool>
+              <string-array name="config_biometric_sensors" translatable="false">
+                  <item>0:2:15</item>
+              </string-array>
+              <string-array name="config_fingerprintSensorLocations" translatable="false">
+                  <item>540:700:80</item>
+              </string-array>
           </resources>
           EOF
 
@@ -75,6 +81,7 @@ jobs:
             --min-sdk-version ${{ matrix.api_level }} \
             --target-sdk-version ${{ matrix.api_level }} \
             --manifest AndroidManifest.xml \
+            --auto-add-overlay \
             -o unaligned.apk \
             compiled_res.zip
 
