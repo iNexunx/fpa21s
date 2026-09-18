@@ -59,6 +59,7 @@ jobs:
                   <item>0:2:15</item>
               </string-array>
               <string-array name="config_fingerprintSensorLocations" translatable="false">
+                  <item>0:540:700:80</item>
                   <item>540:700:80</item>
               </string-array>
           </resources>
